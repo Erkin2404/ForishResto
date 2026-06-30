@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1d4ed8">
+<link rel="manifest" href="manifest.json">
+<title>Ресторан хисоби — Сотиш ва Омбор</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
+    --border:#e5e7eb; --accent:#2563eb; --accent-d:#1d4ed8;
+    --green:#16a34a; --red:#dc2626; --amber:#d97706;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:var(--accent-d);color:#fff;padding:16px 20px;}
+  header h1{margin:0;font-size:20px;}
+  .tabs{display:flex;gap:4px;background:#fff;padding:0 16px;border-bottom:1px solid var(--border);overflow-x:auto;}
+  .tab{padding:12px 16px;cursor:pointer;border:none;background:none;font-size:14px;color:var(--muted);white-space:nowrap;border-bottom:3px solid transparent;}
+  .tab.active{color:var(--accent-d);border-bottom-color:var(--accent-d);font-weight:600;}
+  main{padding:16px;max-width:1100px;margin:0 auto;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;}
+  .card h2{margin:0 0 12px;font-size:16px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
+  .field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);}
+  .field input,.field select{padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;min-width:140px;}
+  button.primary{background:var(--accent);color:#fff;border:none;padding:9px 16px;border-radius:6px;font-size:14px;cursor:pointer;}
+  button.primary:hover{background:var(--accent-d);}
+  button.secondary{background:#fff;border:1px solid var(--border);padding:9px 14px;border-radius:6px;cursor:pointer;font-size:14px;}
+  button.danger{background:#fff;color:var(--red);border:1px solid #fecaca;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:12px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;}
+  th{background:#f9fafb;color:var(--muted);font-weight:600;}
+  tr:hover{background:#fafbff;}
+  .low{color:var(--red);font-weight:700;}
+  .ok{color:var(--green);}
+  .pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;}
+  .pill.in{background:#dcfce7;color:#166534;}
+  .pill.out{background:#fee2e2;color:#991b1b;}
+  .muted{color:var(--muted);font-size:12px;}
+  .err{color:var(--red);font-size:13px;margin-top:8px;}
+  .ok-msg{color:var(--green);font-size:13px;margin-top:8px;}
+  .norm-list{margin-top:8px;}
+  .norm-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
+  .total{font-weight:700;}
+  .section-title{font-size:13px;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em;}
+  .empty{color:var(--muted);font-style:italic;padding:10px 0;}
+</style>
+</head>
+<body>
+<div id="login-screen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1d4ed8,#2563eb);">
+  <div style="background:#fff;border-radius:14px;padding:32px 28px;width:90%;max-width:340px;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+    <div style="text-align:center;font-size:38px;margin-bottom:6px;">🍲</div>
+    <h2 style="text-align:center;margin:0 0 18px;color:#1f2937;">Ресторан хисоби</h2>
+    <div class="field" style="margin-bottom:12px;">
+      <label>Логин</label>
+      <input type="text" id="login-user" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;font-size:14px;" placeholder="Логин" />
+    </div>
+    <div class="field" style="margin-bottom:16px;">
+      <label>Парол</label>
+      <input type="password" id="login-pass" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:6px;font-size:14px;" placeholder="Парол" />
+    </div>
+    <button class="primary" id="login-submit" style="width:100%;padding:11px;font-size:15px;">Кириш</button>
+    <div id="login-error" class="err" style="text-align:center;margin-top:10px;"></div>
+  </div>
+</div>
+
+<div id="app-root" style="display:none;">
+<header><h1>🍲 Ресторан хисоби — Сотиш / Омбор / Норматив</h1></header>
+<div class="tabs" id="tabs"></div>
+<main id="main"></main>
+</div>
+
+<script>
+/* ===================== DATA LAYER ===================== */
+const STORAGE_KEY = 'restoran_uchet_v3';
+
+function defaultData(){
+  return {
+    dishes: [
+      {
+        id:'d1', name:'Кайнатма шурва', saleUnit:'порс', price:35000,
+        batchPortions:10, batchUnit:'порс',
+        norms:[
+          {ing:'Мол гушт', qty:1000, unit:'г'},
+          {ing:'Картошка', qty:500, unit:'г'},
+          {ing:'Сабзи', qty:250, unit:'г'},
+          {ing:'Пиёз', qty:500, unit:'г'},
+          {ing:'Шолгом', qty:125, unit:'г'},
+          {ing:'Помидор', qty:250, unit:'г'},
+          {ing:'Булгор калампири', qty:250, unit:'г'},
+          {ing:'Зираворлар', qty:50, unit:'г'},
+          {ing:'Кукатлар', qty:250, unit:'г'},
+          {ing:'Сув', qty:3000, unit:'мл'},
+          {ing:'Туз', qty:30, unit:'г'},
+        ]
+      },
+      {
+        id:'d2', name:'Жиз', saleUnit:'кг', price:250000,
+        batchPortions:1, batchUnit:'кг',
+        norms:[
+          {ing:'Куй гушт', qty:1000, unit:'г'},
+          {ing:'Дубма ёги', qty:200, unit:'г'},
+          {ing:'Пиёз', qty:375, unit:'г'},
+          {ing:'Зираворлар', qty:50, unit:'г'},
+          {ing:'Кукатлар', qty:250, unit:'г'},
+          {ing:'Сув', qty:200, unit:'мл'},
+          {ing:'Туз', qty:30, unit:'г'},
+        ]
+      }
+    ],
+    warehouse: [
+      {ing:'Куй гушт', qty:3800, opening:3800, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Дубма ёги', qty:3200, opening:3200, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Мол гушт', qty:3800, opening:3800, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Картошка', qty:3500, opening:3500, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Сабзи', qty:3250, opening:3250, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Пиёз', qty:3500, opening:3500, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Шолгом', qty:3125, opening:3125, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Помидор', qty:3250, opening:3250, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Булгор калампири', qty:3250, opening:3250, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Зираворлар', qty:3500, opening:3500, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Кукатлар', qty:3250, opening:3250, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+      {ing:'Сув', qty:13000, opening:13000, kirimTotal:0, chikimSaleTotal:0, baseUnit:'мл'},
+      {ing:'Туз', qty:3300, opening:3300, kirimTotal:0, chikimSaleTotal:0, baseUnit:'г'},
+    ],
+    sales: [],
+    history: []
+  };
+}
+
+function loadData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) { const d=defaultData(); saveData(d); return d; }
+    return JSON.parse(raw);
+  }catch(e){ const d=defaultData(); saveData(d); return d; }
+}
+function saveData(d){ localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+
+let DATA = loadData();
+
+/* ===================== UNIT HELPERS ===================== */
+// Base units: weight -> грамм (г), volume -> миллилитр (мл), else count (pieces)
+function unitFamily(unitRaw){
+  const u = (unitRaw||'').toLowerCase().trim();
+  if(u.includes('кг') || u.includes('килограм')) return {family:'weight', factor:1000, base:'г'};
+  if(u.includes('грамм') || u==='г' || u==='гр') return {family:'weight', factor:1, base:'г'};
+  if(u.includes('литр') || u==='л') return {family:'volume', factor:1000, base:'мл'};
+  if(u.includes('мл')) return {family:'volume', factor:1, base:'мл'};
+  return {family:'count', factor:1, base:u||'дона'};
+}
+function toBase(qty, unitRaw){
+  const f = unitFamily(unitRaw);
+  return {value: qty*f.factor, base: f.base, family:f.family};
+}
+function formatBase(value, base){
+  const neg = value<0;
+  let v = Math.abs(value);
+  let result;
+  if(base==='г'){
+    const kg = Math.floor(v/1000);
+    const g = Math.round(v - kg*1000);
+    if(kg>0 && g>0) result = `${kg} кг ${g} г`;
+    else if(kg>0) result = `${kg} кг`;
+    else result = `${g} г`;
+  } else if(base==='мл'){
+    const l = Math.floor(v/1000);
+    const ml = Math.round(v - l*1000);
+    if(l>0 && ml>0) result = `${l} л ${ml} мл`;
+    else if(l>0) result = `${l} л`;
+    else result = `${ml} мл`;
+  } else {
+    result = v.toLocaleString('ru-RU',{maximumFractionDigits:2})+' '+base;
+  }
+  return (neg? '-':'') + result;
+}
+function fmtMoney(n){ return Number(n||0).toLocaleString('ru-RU')+" сум"; }
+function fmtDate(ts){ const d=new Date(ts); return d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+function findWarehouseItem(ing){
+  return DATA.warehouse.find(w=>w.ing===ing);
+}
+function ensureWarehouseItem(ing, base){
+  let w = findWarehouseItem(ing);
+  if(!w){ w={ing, qty:0, opening:0, kirimTotal:0, chikimSaleTotal:0, baseUnit:base}; DATA.warehouse.push(w); }
+  if(w.opening===undefined) w.opening = 0;
+  if(w.kirimTotal===undefined) w.kirimTotal = 0;
+  if(w.chikimSaleTotal===undefined) w.chikimSaleTotal = 0;
+  return w;
+}
+
+/* ===================== CORE LOGIC: SELL A DISH ===================== */
+function sellDish(dishId, qty){
+  const dish = DATA.dishes.find(d=>d.id===dishId);
+  if(!dish) return {ok:false, msg:'Таом топилмади'};
+  if(!qty || qty<=0) return {ok:false, msg:'Микдорни тугри киритинг'};
+
+  const ratio = qty / dish.batchPortions;
+
+  // 1) check stock sufficiency first
+  const needs = dish.norms.map(n=>{
+    const b = toBase(n.qty*ratio, n.unit);
+    return {ing:n.ing, need:b.value, base:b.base};
+  });
+  for(const need of needs){
+    const w = findWarehouseItem(need.ing);
+    const have = w? w.qty : 0;
+    if(have < need.need - 1e-9){
+      return {ok:false, msg:`Омборда "${need.ing}" етарли эмас. Керак: ${formatBase(need.need, need.base)}, бор: ${formatBase(have, need.base)}`};
+    }
+  }
+
+  // 2) deduct
+  needs.forEach(need=>{
+    const w = ensureWarehouseItem(need.ing, need.base);
+    w.qty -= need.need;
+    w.chikimSaleTotal += need.need;
+    DATA.history.unshift({
+      ts: Date.now(), type:'chikim', ing: need.ing,
+      qty: need.need, base: need.base,
+      note: `Сотилди: ${dish.name} (${qty} ${dish.saleUnit})`
+    });
+  });
+
+  // 3) record sale
+  const total = dish.price * qty;
+  DATA.sales.unshift({
+    id: 's'+Date.now()+Math.random().toString(16).slice(2,6),
+    ts: Date.now(), dishId, dishName: dish.name,
+    qty, unit: dish.saleUnit, price: dish.price, total
+  });
+
+  saveData(DATA);
+  return {ok:true};
+}
+
+function addWarehouseIncome(ing, qty, unit){
+  const b = toBase(qty, unit);
+  const w = ensureWarehouseItem(ing, b.base);
+  if(w.baseUnit !== b.base && w.qty===0){ w.baseUnit = b.base; }
+  w.qty += b.value;
+  w.kirimTotal += b.value;
+  DATA.history.unshift({ts:Date.now(), type:'kirim', ing, qty:b.value, base:b.base, note:'Омборга кирим'});
+  saveData(DATA);
+}
+
+function deleteSale(saleId){
+  const idx = DATA.sales.findIndex(s=>s.id===saleId);
+  if(idx===-1) return;
+  const sale = DATA.sales[idx];
+  const dish = DATA.dishes.find(d=>d.id===sale.dishId);
+  if(dish){
+    const ratio = sale.qty / dish.batchPortions;
+    dish.norms.forEach(n=>{
+      const b = toBase(n.qty*ratio, n.unit);
+      const w = ensureWarehouseItem(n.ing, b.base);
+      w.qty += b.value;
+      w.chikimSaleTotal -= b.value;
+      DATA.history.unshift({ts:Date.now(), type:'kirim', ing:n.ing, qty:b.value, base:b.base, note:`Бекор килинди: ${sale.dishName}`});
+    });
+  }
+  DATA.sales.splice(idx,1);
+  saveData(DATA);
+}
+
+/* ===================== UI: TABS ===================== */
+const TABS = [
+  {id:'sale', label:'Сотиш'},
+  {id:'warehouse', label:'Омбор'},
+  {id:'norms', label:'Таомлар Нормативи'},
+];
+let activeTab = 'sale';
+
+function renderTabs(){
+  const el = document.getElementById('tabs');
+  el.innerHTML = TABS.map(t=>`<button class="tab ${t.id===activeTab?'active':''}" data-tab="${t.id}">${t.label}</button>`).join('');
+  el.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{ activeTab=b.dataset.tab; render(); }));
+}
+
+/* ===================== UI: SALE TAB ===================== */
+function renderSaleTab(){
+  const dishOptions = DATA.dishes.map(d=>`<option value="${d.id}">${d.name} (${fmtMoney(d.price)}/${d.saleUnit})</option>`).join('');
+  const totalToday = DATA.sales.reduce((s,x)=>s+x.total,0);
+  return `
+  <div class="card">
+    <h2>Янги сотиш</h2>
+    <div class="row">
+      <div class="field">
+        <label>Таом</label>
+        <select id="sale-dish">${dishOptions || '<option disabled>Таом йук</option>'}</select>
+      </div>
+      <div class="field">
+        <label>Микдор</label>
+        <input type="number" id="sale-qty" min="0" step="0.01" placeholder="мас. 5" />
+      </div>
+      <button class="primary" id="sale-submit">Сотиш</button>
+    </div>
+    <div id="sale-feedback"></div>
+  </div>
+  <div class="card">
+    <h2>Сотувлар жадвали <span class="muted">(жами: ${fmtMoney(totalToday)})</span></h2>
+    ${DATA.sales.length? `
+    <table>
+      <thead><tr><th>№</th><th>Сана</th><th>Таом</th><th>Микдор</th><th>Нархи</th><th>Жами</th><th></th></tr></thead>
+      <tbody>
+        ${DATA.sales.map((s,i)=>`
+          <tr>
+            <td>${DATA.sales.length-i}</td>
+            <td>${fmtDate(s.ts)}</td>
+            <td>${s.dishName}</td>
+            <td>${s.qty} ${s.unit}</td>
+            <td>${fmtMoney(s.price)}</td>
+            <td class="total">${fmtMoney(s.total)}</td>
+            <td><button class="danger" data-del-sale="${s.id}">Бекор килиш</button></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : '<div class="empty">Хали сотувлар йук</div>'}
+  </div>`;
+}
+
+function bindSaleTab(){
+  const btn = document.getElementById('sale-submit');
+  if(btn) btn.addEventListener('click', ()=>{
+    const dishId = document.getElementById('sale-dish').value;
+    const qty = parseFloat(document.getElementById('sale-qty').value);
+    const fb = document.getElementById('sale-feedback');
+    const res = sellDish(dishId, qty);
+    if(res.ok){
+      fb.innerHTML = `<div class="ok-msg">✅ Сотилди ва омбордан масаллик чикарилди</div>`;
+      render();
+    } else {
+      fb.innerHTML = `<div class="err">⚠️ ${res.msg}</div>`;
+    }
+  });
+  document.querySelectorAll('[data-del-sale]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if(confirm('Сотувни бекор килиш ва масалликни омборга кайтаришни тасдикланг')){
+        deleteSale(b.dataset.delSale);
+        render();
+      }
+    });
+  });
+}
+
+/* ===================== UI: WAREHOUSE TAB ===================== */
+function renderWarehouseTab(){
+  const rows = DATA.warehouse.slice().sort((a,b)=>a.ing.localeCompare(b.ing,'ru')).map((w,i)=>{
+    const lowThreshold = w.baseUnit==='г'? 500 : (w.baseUnit==='мл'? 500 : 1);
+    const low = w.qty < lowThreshold;
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${w.ing}</td>
+      <td>${formatBase(w.opening, w.baseUnit)}</td>
+      <td class="ok">${w.kirimTotal>0? '+'+formatBase(w.kirimTotal, w.baseUnit) : '—'}</td>
+      <td class="low">${w.chikimSaleTotal>0? '-'+formatBase(w.chikimSaleTotal, w.baseUnit) : '—'}</td>
+      <td class="${low?'low':'ok'}" style="font-weight:700">${formatBase(w.qty, w.baseUnit)}</td>
+      <td>${low? '<span class="pill out">кам колди</span>' : '<span class="pill in">етарли</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  const ingredientNames = Array.from(new Set(DATA.warehouse.map(w=>w.ing))).sort((a,b)=>a.localeCompare(b,'ru'));
+
+  const histRows = DATA.history.slice(0,200).map(h=>`
+    <tr>
+      <td>${fmtDate(h.ts)}</td>
+      <td>${h.type==='kirim'? '<span class="pill in">кирим</span>' : '<span class="pill out">чиким</span>'}</td>
+      <td>${h.ing}</td>
+      <td>${formatBase(h.qty, h.base)}</td>
+      <td class="muted">${h.note||''}</td>
+    </tr>`).join('');
+
+  return `
+  <div class="card">
+    <h2>Омборга кирим киритиш</h2>
+    <div class="row">
+      <div class="field">
+        <label>Махсулот номи</label>
+        <input list="ing-list" id="wh-ing" placeholder="мас. Картошка" />
+        <datalist id="ing-list">${ingredientNames.map(n=>`<option value="${n}">`).join('')}</datalist>
+      </div>
+      <div class="field">
+        <label>Микдор</label>
+        <input type="number" id="wh-qty" min="0" step="0.01" placeholder="мас. 10" />
+      </div>
+      <div class="field">
+        <label>Улчов бирлиги</label>
+        <select id="wh-unit">
+          <option value="кг">кг</option>
+          <option value="г">грамм</option>
+          <option value="л">литр</option>
+          <option value="мл">мл</option>
+          <option value="дона">дона</option>
+        </select>
+      </div>
+      <button class="primary" id="wh-submit">Кирим килиш</button>
+    </div>
+    <div id="wh-feedback"></div>
+  </div>
+  <div class="card">
+    <h2>Омбор колдиги</h2>
+    <table>
+      <thead><tr>
+        <th>№</th><th>Махсулот</th><th>Колдик</th><th>Махсулотлар кирим</th>
+        <th>Сотишдаги махсулотлар харажати</th><th>Колдик</th><th>Холати</th>
+      </tr></thead>
+      <tbody>${rows || '<tr><td colspan="7" class="empty">Омбор буш</td></tr>'}</tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Омбор харакатлари тарихи</h2>
+    <table>
+      <thead><tr><th>Сана</th><th>Тури</th><th>Махсулот</th><th>Микдор</th><th>Изох</th></tr></thead>
+      <tbody>${histRows || '<tr><td colspan="5" class="empty">Тарих буш</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+
+function bindWarehouseTab(){
+  const btn = document.getElementById('wh-submit');
+  if(!btn) return;
+  btn.addEventListener('click', ()=>{
+    const ing = document.getElementById('wh-ing').value.trim();
+    const qty = parseFloat(document.getElementById('wh-qty').value);
+    const unit = document.getElementById('wh-unit').value;
+    const fb = document.getElementById('wh-feedback');
+    if(!ing || !qty || qty<=0){ fb.innerHTML = `<div class="err">⚠️ Маълумотларни тулдиринг</div>`; return; }
+    addWarehouseIncome(ing, qty, unit);
+    fb.innerHTML = `<div class="ok-msg">✅ ${ing} омборга кушилди</div>`;
+    render();
+  });
+}
+
+/* ===================== UI: NORMS TAB ===================== */
+let editingDishId = null;
+
+function renderNormsTab(){
+  const dishCards = DATA.dishes.map(d=>{
+    const normsRows = d.norms.map((n,i)=>`
+      <div class="norm-row">
+        <span style="flex:1">${n.ing}</span>
+        <span class="muted">${n.qty} ${n.unit}</span>
+        <button class="danger" data-rm-norm="${d.id}|${i}">✕</button>
+      </div>`).join('');
+    return `
+    <div class="card">
+      <h2>${d.name} <span class="muted">(${fmtMoney(d.price)} / ${d.saleUnit})</span></h2>
+      <div class="muted">1 партия = ${d.batchPortions} ${d.batchUnit} тайёр махсулот учун кетадиган масалликлар:</div>
+      <div class="norm-list">${normsRows || '<div class="empty">Норматив киритилмаган</div>'}</div>
+      <div class="section-title">Янги масаллик кушиш</div>
+      <div class="row">
+        <div class="field"><label>Номи</label><input id="ning-${d.id}" placeholder="мас. Пиёз" /></div>
+        <div class="field"><label>Микдор</label><input type="number" id="nqty-${d.id}" step="0.01" placeholder="500" /></div>
+        <div class="field"><label>Бирлик</label>
+          <select id="nunit-${d.id}">
+            <option value="г">грамм</option>
+            <option value="кг">кг</option>
+            <option value="мл">мл</option>
+            <option value="л">литр</option>
+            <option value="дона">дона</option>
+          </select>
+        </div>
+        <button class="secondary" data-add-norm="${d.id}">Кушиш</button>
+        <button class="danger" data-rm-dish="${d.id}">Таомни учириш</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="card">
+    <h2>Янги таом кушиш</h2>
+    <div class="row">
+      <div class="field"><label>Таом номи</label><input id="nd-name" placeholder="мас. Лагман" /></div>
+      <div class="field"><label>Нархи (сум)</label><input type="number" id="nd-price" placeholder="40000" /></div>
+      <div class="field"><label>Сотиш бирлиги</label>
+        <select id="nd-saleunit"><option value="порс">порс</option><option value="кг">кг</option><option value="дона">дона</option></select>
+      </div>
+      <div class="field"><label>1 партия = неча порция</label><input type="number" id="nd-batch" placeholder="10" /></div>
+      <button class="primary" id="nd-submit">Таом яратиш</button>
+    </div>
+    <div id="nd-feedback"></div>
+  </div>
+  ${dishCards}`;
+}
+
+function bindNormsTab(){
+  const submit = document.getElementById('nd-submit');
+  if(submit){
+    submit.addEventListener('click', ()=>{
+      const name = document.getElementById('nd-name').value.trim();
+      const price = parseFloat(document.getElementById('nd-price').value);
+      const saleUnit = document.getElementById('nd-saleunit').value;
+      const batch = parseFloat(document.getElementById('nd-batch').value);
+      const fb = document.getElementById('nd-feedback');
+      if(!name || !price || !batch){ fb.innerHTML = `<div class="err">⚠️ Барча майдонларни тулдиринг</div>`; return; }
+      DATA.dishes.push({id:'d'+Date.now(), name, saleUnit, price, batchPortions:batch, batchUnit:saleUnit, norms:[]});
+      saveData(DATA);
+      fb.innerHTML = `<div class="ok-msg">✅ Таом яратилди, энди унга норматив кушинг</div>`;
+      render();
+    });
+  }
+  document.querySelectorAll('[data-add-norm]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const dishId = b.dataset.addNorm;
+      const dish = DATA.dishes.find(d=>d.id===dishId);
+      const ing = document.getElementById(`ning-${dishId}`).value.trim();
+      const qty = parseFloat(document.getElementById(`nqty-${dishId}`).value);
+      const unit = document.getElementById(`nunit-${dishId}`).value;
+      if(!ing || !qty){ alert('Маълумотларни тулдиринг'); return; }
+      dish.norms.push({ing, qty, unit});
+      saveData(DATA);
+      render();
+    });
+  });
+  document.querySelectorAll('[data-rm-norm]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const [dishId, idx] = b.dataset.rmNorm.split('|');
+      const dish = DATA.dishes.find(d=>d.id===dishId);
+      dish.norms.splice(parseInt(idx),1);
+      saveData(DATA);
+      render();
+    });
+  });
+  document.querySelectorAll('[data-rm-dish]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if(confirm('Бу таомни бутунлай учиришни тасдикланг')){
+        DATA.dishes = DATA.dishes.filter(d=>d.id!==b.dataset.rmDish);
+        saveData(DATA);
+        render();
+      }
+    });
+  });
+}
+
+/* ===================== UI: HISTORY TAB ===================== */
+/* renderHistoryTab merged into renderWarehouseTab */
+
+/* ===================== RENDER ROOT ===================== */
+function render(){
+  renderTabs();
+  const main = document.getElementById('main');
+  if(activeTab==='sale'){ main.innerHTML = renderSaleTab(); bindSaleTab(); }
+  else if(activeTab==='warehouse'){ main.innerHTML = renderWarehouseTab(); bindWarehouseTab(); }
+  else if(activeTab==='norms'){ main.innerHTML = renderNormsTab(); bindNormsTab(); }
+}
+
+/* ===================== LOGIN GATE ===================== */
+const APP_USER = 'Forish83';
+const APP_PASS = '090383';
+const SESSION_KEY = 'restoran_session_v1';
+
+function tryLogin(){
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  if(u===APP_USER && p===APP_PASS){
+    sessionStorage.setItem(SESSION_KEY, '1');
+    showApp();
+  } else {
+    err.textContent = '⚠️ Логин ёки парол нотугри';
+  }
+}
+
+function showApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-root').style.display = 'block';
+  render();
+}
+
+document.getElementById('login-submit').addEventListener('click', tryLogin);
+document.getElementById('login-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+document.getElementById('login-user').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+
+if(sessionStorage.getItem(SESSION_KEY)==='1'){
+  showApp();
+}
+</script>
+</body>
+</html>
